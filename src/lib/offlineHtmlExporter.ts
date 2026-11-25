@@ -5,16 +5,16 @@ import {
   isStandaloneOfflineMode,
 } from './offlineRuntime';
 
-const CACHE_NAME = 'dakahlia-offline-assets-v2';
+const CACHE_NAME = 'dakahlia-offline-assets-v3';
 const TEMPLATE_URL = '/offline-template.html';
 const MANIFEST_URL = '/manifest.webmanifest';
-const IDB_NAME = 'dakahlia_offline_templates_v2';
+const IDB_NAME = 'dakahlia_offline_templates_v3';
 const IDB_STORE = 'templates';
 
 const FALLBACK_MANIFEST = {
   id: '/',
-  name: 'إدارة البيئة — السكرتارية | شركة الدقهلية لصناعة وتكرير السكر',
-  short_name: 'إدارة البيئة',
+  name: 'درايمانب',
+  short_name: 'Draymanb',
   description:
     'منظومة إدارة البيئة والسلامة المهنية لشركة الدقهلية لصناعة وتكرير السكر — د. أيمن عبد الحميد.',
   theme_color: '#0F172A',
@@ -163,7 +163,7 @@ function ensurePwaMetaInHtml(html: string): string {
   if (!out.includes('mobile-web-app-capable')) {
     out = out.replace(
       '</head>',
-      `  <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-status-bar-style" content="default" />\n    <meta name="apple-mobile-web-app-title" content="إدارة البيئة" />\n  </head>`
+      `  <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-status-bar-style" content="default" />\n    <meta name="apple-mobile-web-app-title" content="درايمانب" />\n  </head>`
     );
   }
   return out;

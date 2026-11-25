@@ -19,8 +19,8 @@ export default defineConfig(() => {
         ],
         manifest: {
           id: '/',
-          name: 'إدارة البيئة — السكرتارية | شركة الدقهلية لصناعة وتكرير السكر',
-          short_name: 'إدارة البيئة',
+          name: 'درايمانب',
+          short_name: 'Draymanb',
           description:
             'منظومة إدارة البيئة والسلامة المهنية لشركة الدقهلية لصناعة وتكرير السكر — د. أيمن عبد الحميد.',
           theme_color: '#0F172A',
@@ -52,6 +52,12 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          // Bumped to give the service worker a fresh cache and drop caches
+          // that still hold the old app name.
+          cacheId: 'draymanb-v3',
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
           runtimeCaching: [
@@ -59,7 +65,7 @@ export default defineConfig(() => {
               urlPattern: /\/offline-template\.html$/i,
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'offline-template-cache-v2',
+                cacheName: 'offline-template-cache-v3',
                 networkTimeoutSeconds: 4,
                 cacheableResponse: {
                   statuses: [0, 200],
@@ -70,7 +76,7 @@ export default defineConfig(() => {
               urlPattern: /\/manifest\.webmanifest$/i,
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'pwa-manifest-cache-v2',
+                cacheName: 'pwa-manifest-cache-v3',
                 networkTimeoutSeconds: 4,
                 cacheableResponse: {
                   statuses: [0, 200],
