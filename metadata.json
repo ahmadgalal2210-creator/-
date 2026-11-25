@@ -1,0 +1,8 @@
+{
+  "name": "إدارة البيئة — التطوير | شركة الدقهلية لصناعة وتكرير السكر",
+  "description": "منظومة إدارة البيئة والسلامة المهنية لشركة الدقهلية لصناعة وتكرير السكر — د. أيمن عبد الحميد (دكتوراه في الكيمياء والسلامة المهنية).",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

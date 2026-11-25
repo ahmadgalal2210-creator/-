@@ -1,0 +1,784 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Private profile document for the authenticated workspace owner.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "displayName", "email", "createdAt", "updatedAt"]
+    },
+    "ProjectFolder": {
+      "title": "Project Folder",
+      "description": "Organizational folder or course/client container across university and company domains.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["university", "company"]
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "name", "domain", "code", "description", "createdAt", "updatedAt"]
+    },
+    "IndexedFile": {
+      "title": "Indexed Document File",
+      "description": "Metadata and extracted searchable content for Word, Excel, PDF, and office files.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "category": {
+          "type": "string",
+          "enum": ["word", "excel", "pdf", "other"]
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["university", "company"]
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "sizeBytes": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "hasBlob": {
+          "type": "boolean"
+        },
+        "mimeType": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "extractedText": {
+          "type": "string",
+          "maxLength": 30000
+        },
+        "sheetPreview": {
+          "type": "array"
+        },
+        "starred": {
+          "type": "boolean"
+        },
+        "researchKind": {
+          "type": "string",
+          "enum": ["none", "masters", "phd", "paper", "book"]
+        },
+        "headings": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "fileName",
+        "category",
+        "domain",
+        "projectId",
+        "sizeBytes",
+        "notes",
+        "hasBlob",
+        "mimeType",
+        "extractedText",
+        "sheetPreview",
+        "starred",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "IndexedImage": {
+      "title": "Indexed Image Asset",
+      "description": "Visual archive item (diagrams, lecture boards, site photos, scanned documents).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 260
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["university", "company"]
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "sizeBytes": {
+          "type": "number"
+        },
+        "capturedAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "caption": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "hasBlob": {
+          "type": "boolean"
+        },
+        "thumbnailDataUrl": {
+          "type": "string",
+          "maxLength": 250000
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "starred": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "fileName",
+        "domain",
+        "projectId",
+        "sizeBytes",
+        "capturedAt",
+        "caption",
+        "hasBlob",
+        "thumbnailDataUrl",
+        "width",
+        "height",
+        "starred",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WorkMemo": {
+      "title": "Work Memo",
+      "description": "Structured work memo (incoming or outgoing) linked to files and departments.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 40000
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["university", "company"]
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "linkedFileIds": {
+          "type": "array"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["incoming", "outgoing"]
+        },
+        "departmentName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "replyToId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "content",
+        "domain",
+        "projectId",
+        "pinned",
+        "linkedFileIds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WorkOrder": {
+      "title": "Work Order",
+      "description": "Actionable work order or task across university and corporate operations.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "refCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "details": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["university", "company"]
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "issuer": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "assigneeOrUnit": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "subDepartment": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "technicians": {
+          "type": "array"
+        },
+        "isAssigned": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["urgent", "high", "normal"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "in_progress", "review", "done"]
+        },
+        "dueDate": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "linkedFileIds": {
+          "type": "array"
+        },
+        "sourceMessageId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "refCode",
+        "title",
+        "details",
+        "domain",
+        "projectId",
+        "issuer",
+        "assigneeOrUnit",
+        "priority",
+        "status",
+        "dueDate",
+        "linkedFileIds",
+        "sourceMessageId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "IncomingMessage": {
+      "title": "Incoming Message",
+      "description": "Logged incoming communication from university or company channels.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "senderName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "senderRole": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "channel": {
+          "type": "string",
+          "enum": ["university_email", "company_email", "whatsapp", "teams"]
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["university", "company"]
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "isRead": {
+          "type": "boolean"
+        },
+        "starred": {
+          "type": "boolean"
+        },
+        "convertedOrderId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "convertedMemoId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "senderName",
+        "senderRole",
+        "subject",
+        "body",
+        "channel",
+        "domain",
+        "projectId",
+        "receivedAt",
+        "isRead",
+        "starred",
+        "convertedOrderId",
+        "convertedMemoId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CorrespondenceEntity": {
+      "title": "External Correspondence Entity",
+      "description": "External authority or partner (e.g., Ministry of Environment, Health Directorate) for incoming/outgoing correspondences.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "contactInfo": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "ownerId", "name", "category", "contactInfo", "notes", "createdAt", "updatedAt"]
+    },
+    "ExternalCorrespondence": {
+      "title": "External Correspondence",
+      "description": "Incoming or outgoing external correspondence filed under a specific correspondence entity.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "entityId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "entityName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["incoming", "outgoing"]
+        },
+        "refNumber": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 30000
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "subDepartment": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "linkedFileIds": {
+          "type": "array"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "replyToId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "entityId",
+        "entityName",
+        "direction",
+        "refNumber",
+        "subject",
+        "body",
+        "date",
+        "linkedFileIds",
+        "pinned",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WorkDraft": {
+      "title": "Work Draft (A4 Word Note)",
+      "description": "Freeform A4 Word draft or voice-dictated notepad under إدارة البيئة.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 40000
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["factory", "private"]
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "linkedWordFileId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "content",
+        "projectId",
+        "pinned",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private owner profile document."
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/ProjectFolder" },
+      "description": "User project folders across company operations."
+    },
+    "/users/{userId}/files/{fileId}": {
+      "schema": { "$ref": "#/entities/IndexedFile" },
+      "description": "Indexed Word, Excel, PDF, and document metadata + extracted search content."
+    },
+    "/users/{userId}/images/{imageId}": {
+      "schema": { "$ref": "#/entities/IndexedImage" },
+      "description": "Indexed images and visual archive records."
+    },
+    "/users/{userId}/memos/{memoId}": {
+      "schema": { "$ref": "#/entities/WorkMemo" },
+      "description": "Factory incoming and outgoing memos."
+    },
+    "/users/{userId}/drafts/{draftId}": {
+      "schema": { "$ref": "#/entities/WorkDraft" },
+      "description": "A4 Word drafts and voice-dictated notepads (المفكرات والمسودات)."
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/WorkOrder" },
+      "description": "Actionable business memos (مذكرة الأعمال) and assignments."
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/IncomingMessage" },
+      "description": "Incoming messages triaged into memos or business memos."
+    },
+    "/users/{userId}/correspondenceEntities/{entityId}": {
+      "schema": { "$ref": "#/entities/CorrespondenceEntity" },
+      "description": "External authorities and correspondence partner entities."
+    },
+    "/users/{userId}/correspondences/{correspondenceId}": {
+      "schema": { "$ref": "#/entities/ExternalCorrespondence" },
+      "description": "Incoming and outgoing external correspondences grouped by entity."
+    }
+  }
+}

@@ -1,0 +1,562 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Deny all access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function userRootExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) ||
+             existsAfter(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isValidProjectRef(userId, projectId) {
+      return projectId is string && projectId.size() <= 128 && (
+        projectId == '' ||
+        (
+          isValidId(projectId) && (
+            exists(/databases/$(database)/documents/users/$(userId)/projects/$(projectId)) ||
+            existsAfter(/databases/$(database)/documents/users/$(userId)/projects/$(projectId))
+          )
+        )
+      );
+    }
+
+    function isValidStringList(arr, maxLen) {
+      return arr is list && arr.size() <= maxLen && (arr.size() == 0 || (arr[0] is string && arr[0].size() <= 128));
+    }
+
+    function isValidSheetPreviewList(arr) {
+      return arr is list && arr.size() <= 10 && (
+        arr.size() == 0 || (
+          arr[0] is map &&
+          arr[0].keys().hasAll(['sheetName', 'headers', 'rows']) &&
+          arr[0].keys().hasOnly(['sheetName', 'headers', 'rows']) &&
+          arr[0].sheetName is string && arr[0].sheetName.size() <= 100 &&
+          arr[0].headers is list && arr[0].headers.size() <= 50 &&
+          arr[0].rows is list && arr[0].rows.size() <= 60 &&
+          (arr[0].rows.size() == 0 || (
+            arr[0].rows[0] is map &&
+            arr[0].rows[0].keys().hasAll(['cells']) &&
+            arr[0].rows[0].keys().hasOnly(['cells']) &&
+            arr[0].rows[0].cells is list &&
+            arr[0].rows[0].cells.size() <= 50
+          ))
+        )
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['ownerId', 'displayName', 'email', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'displayName', 'email', 'createdAt', 'updatedAt']) &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidProject(data, userId, projectId) {
+      return data.keys().hasAll(['id', 'ownerId', 'name', 'domain', 'code', 'description', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'ownerId', 'name', 'domain', 'code', 'description', 'createdAt', 'updatedAt']) &&
+        data.id == projectId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 160 &&
+        data.domain in ['university', 'company'] &&
+        data.code is string && data.code.size() <= 40 &&
+        data.description is string && data.description.size() <= 600 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFile(data, userId, fileId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'title', 'fileName', 'category', 'domain', 'projectId',
+          'sizeBytes', 'notes', 'hasBlob', 'mimeType', 'extractedText',
+          'sheetPreview', 'starred', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'title', 'fileName', 'category', 'domain', 'projectId',
+          'sizeBytes', 'notes', 'hasBlob', 'mimeType', 'extractedText',
+          'sheetPreview', 'starred', 'researchKind', 'headings', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id == fileId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 260 &&
+        data.category in ['word', 'excel', 'pdf', 'other'] &&
+        data.domain in ['university', 'company'] &&
+        data.projectId is string && data.projectId.size() <= 128 &&
+        data.sizeBytes is number && data.sizeBytes >= 0 && data.sizeBytes <= 500000000 &&
+        data.notes is string && data.notes.size() <= 2000 &&
+        data.hasBlob is bool &&
+        data.mimeType is string && data.mimeType.size() <= 160 &&
+        data.extractedText is string && data.extractedText.size() <= 30000 &&
+        isValidSheetPreviewList(data.sheetPreview) &&
+        data.starred is bool &&
+        (!('researchKind' in data) || data.researchKind in ['none', 'masters', 'phd', 'paper', 'book']) &&
+        (!('headings' in data) || isValidStringList(data.headings, 60)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidImage(data, userId, imageId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'title', 'fileName', 'domain', 'projectId', 'sizeBytes',
+          'capturedAt', 'caption', 'hasBlob', 'thumbnailDataUrl', 'width', 'height',
+          'starred', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'title', 'fileName', 'domain', 'projectId', 'sizeBytes',
+          'capturedAt', 'caption', 'hasBlob', 'thumbnailDataUrl', 'width', 'height',
+          'starred', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id == imageId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 260 &&
+        data.domain in ['university', 'company'] &&
+        data.projectId is string && data.projectId.size() <= 128 &&
+        data.sizeBytes is number && data.sizeBytes >= 0 && data.sizeBytes <= 100000000 &&
+        data.capturedAt is string && data.capturedAt.size() <= 40 &&
+        data.caption is string && data.caption.size() <= 1000 &&
+        data.hasBlob is bool &&
+        data.thumbnailDataUrl is string && data.thumbnailDataUrl.size() <= 250000 &&
+        data.width is number && data.width >= 0 && data.width <= 20000 &&
+        data.height is number && data.height >= 0 && data.height <= 20000 &&
+        data.starred is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidMemo(data, userId, memoId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'title', 'content', 'domain', 'projectId',
+          'pinned', 'linkedFileIds', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'title', 'content', 'domain', 'projectId',
+          'pinned', 'linkedFileIds', 'direction', 'departmentName',
+          'replyToId', 'threadId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id == memoId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.content is string && data.content.size() <= 40000 &&
+        data.domain in ['university', 'company'] &&
+        data.projectId is string && data.projectId.size() <= 128 &&
+        data.pinned is bool &&
+        isValidStringList(data.linkedFileIds, 20) &&
+        (!('direction' in data) || data.direction in ['incoming', 'outgoing']) &&
+        (!('departmentName' in data) || (data.departmentName is string && data.departmentName.size() <= 160)) &&
+        (!('replyToId' in data) || (data.replyToId is string && data.replyToId.size() <= 128)) &&
+        (!('threadId' in data) || (data.threadId is string && data.threadId.size() <= 128)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDraft(data, userId, draftId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'title', 'content', 'projectId',
+          'pinned', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'title', 'content', 'scope', 'projectId',
+          'linkedWordFileId', 'pinned', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id == draftId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.content is string && data.content.size() <= 40000 &&
+        (!('scope' in data) || data.scope in ['factory', 'private']) &&
+        data.projectId is string && data.projectId.size() <= 128 &&
+        (!('linkedWordFileId' in data) || (data.linkedWordFileId is string && data.linkedWordFileId.size() <= 128)) &&
+        data.pinned is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data, userId, orderId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'refCode', 'title', 'details', 'domain', 'projectId',
+          'issuer', 'assigneeOrUnit', 'priority', 'status', 'dueDate',
+          'linkedFileIds', 'sourceMessageId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'refCode', 'title', 'details', 'domain', 'projectId',
+          'issuer', 'assigneeOrUnit', 'subDepartment', 'technicians', 'isAssigned',
+          'priority', 'status', 'dueDate', 'linkedFileIds', 'sourceMessageId',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.id == orderId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.refCode is string && data.refCode.size() >= 1 && data.refCode.size() <= 40 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.details is string && data.details.size() <= 5000 &&
+        data.domain in ['university', 'company'] &&
+        data.projectId is string && data.projectId.size() <= 128 &&
+        data.issuer is string && data.issuer.size() <= 160 &&
+        data.assigneeOrUnit is string && data.assigneeOrUnit.size() <= 160 &&
+        (!('subDepartment' in data) || (data.subDepartment is string && data.subDepartment.size() <= 160)) &&
+        (!('technicians' in data) || isValidStringList(data.technicians, 20)) &&
+        (!('isAssigned' in data) || data.isAssigned is bool) &&
+        data.priority in ['urgent', 'high', 'normal'] &&
+        data.status in ['new', 'in_progress', 'review', 'done'] &&
+        data.dueDate is string && data.dueDate.size() <= 40 &&
+        isValidStringList(data.linkedFileIds, 20) &&
+        data.sourceMessageId is string && data.sourceMessageId.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCorrespondenceEntity(data, userId, entityId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'name', 'category', 'contactInfo', 'notes', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'name', 'category', 'contactInfo', 'notes', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id == entityId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 160 &&
+        data.category is string && data.category.size() <= 80 &&
+        data.contactInfo is string && data.contactInfo.size() <= 200 &&
+        data.notes is string && data.notes.size() <= 1000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidEntityRef(userId, entityId) {
+      return isValidId(entityId) && (
+        exists(/databases/$(database)/documents/users/$(userId)/correspondenceEntities/$(entityId)) ||
+        existsAfter(/databases/$(database)/documents/users/$(userId)/correspondenceEntities/$(entityId))
+      );
+    }
+
+    function isValidExternalCorrespondence(data, userId, correspondenceId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'entityId', 'entityName', 'direction', 'refNumber',
+          'subject', 'body', 'date', 'linkedFileIds', 'pinned', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'entityId', 'entityName', 'direction', 'refNumber',
+          'subject', 'body', 'date', 'subDepartment', 'linkedFileIds', 'pinned',
+          'replyToId', 'threadId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id == correspondenceId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        isValidId(data.entityId) &&
+        data.entityName is string && data.entityName.size() >= 1 && data.entityName.size() <= 160 &&
+        data.direction in ['incoming', 'outgoing'] &&
+        data.refNumber is string && data.refNumber.size() <= 60 &&
+        data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 240 &&
+        data.body is string && data.body.size() <= 30000 &&
+        data.date is string && data.date.size() <= 40 &&
+        (!('subDepartment' in data) || (data.subDepartment is string && data.subDepartment.size() <= 160)) &&
+        isValidStringList(data.linkedFileIds, 20) &&
+        data.pinned is bool &&
+        (!('replyToId' in data) || (data.replyToId is string && data.replyToId.size() <= 128)) &&
+        (!('threadId' in data) || (data.threadId is string && data.threadId.size() <= 128)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidMessage(data, userId, messageId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'senderName', 'senderRole', 'subject', 'body',
+          'channel', 'domain', 'projectId', 'receivedAt', 'isRead', 'starred',
+          'convertedOrderId', 'convertedMemoId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'ownerId', 'senderName', 'senderRole', 'subject', 'body',
+          'channel', 'domain', 'projectId', 'receivedAt', 'isRead', 'starred',
+          'convertedOrderId', 'convertedMemoId', 'createdAt', 'updatedAt'
+        ]) &&
+        data.id == messageId &&
+        data.ownerId == userId &&
+        data.ownerId == request.auth.uid &&
+        data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 160 &&
+        data.senderRole is string && data.senderRole.size() <= 160 &&
+        data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 240 &&
+        data.body is string && data.body.size() <= 20000 &&
+        data.channel in ['university_email', 'company_email', 'whatsapp', 'teams'] &&
+        data.domain in ['university', 'company'] &&
+        data.projectId is string && data.projectId.size() <= 128 &&
+        data.receivedAt is string && data.receivedAt.size() <= 40 &&
+        data.isRead is bool &&
+        data.starred is bool &&
+        data.convertedOrderId is string && data.convertedOrderId.size() <= 128 &&
+        data.convertedMemoId is string && data.convertedMemoId.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // --- User Profile & Subcollections ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId) && isVerifiedOwner(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(userId) && isVerifiedOwner(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'updatedAt']);
+      allow delete: if false;
+
+      match /projects/{projectId} {
+        allow get: if isValidId(userId) && isValidId(projectId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(projectId) && isVerifiedOwner(userId) &&
+          isValidProject(incoming(), userId, projectId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId);
+        allow update: if isValidId(userId) && isValidId(projectId) && isVerifiedOwner(userId) &&
+          isValidProject(incoming(), userId, projectId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'domain', 'code', 'description', 'updatedAt']) &&
+          userRootExists(userId);
+        allow delete: if isValidId(userId) && isValidId(projectId) && isVerifiedOwner(userId);
+      }
+
+      match /files/{fileId} {
+        allow get: if isValidId(userId) && isValidId(fileId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(fileId) && isVerifiedOwner(userId) &&
+          isValidFile(incoming(), userId, fileId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow update: if isValidId(userId) && isValidId(fileId) && isVerifiedOwner(userId) &&
+          isValidFile(incoming(), userId, fileId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['starred', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'domain', 'projectId', 'notes', 'starred', 'researchKind', 'updatedAt'])
+          ) &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow delete: if isValidId(userId) && isValidId(fileId) && isVerifiedOwner(userId);
+      }
+
+      match /images/{imageId} {
+        allow get: if isValidId(userId) && isValidId(imageId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(imageId) && isVerifiedOwner(userId) &&
+          isValidImage(incoming(), userId, imageId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow update: if isValidId(userId) && isValidId(imageId) && isVerifiedOwner(userId) &&
+          isValidImage(incoming(), userId, imageId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['starred', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'domain', 'projectId', 'caption', 'starred', 'updatedAt'])
+          ) &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow delete: if isValidId(userId) && isValidId(imageId) && isVerifiedOwner(userId);
+      }
+
+      match /memos/{memoId} {
+        allow get: if isValidId(userId) && isValidId(memoId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(memoId) && isVerifiedOwner(userId) &&
+          isValidMemo(incoming(), userId, memoId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow update: if isValidId(userId) && isValidId(memoId) && isVerifiedOwner(userId) &&
+          isValidMemo(incoming(), userId, memoId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['pinned', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'domain', 'projectId', 'pinned', 'linkedFileIds', 'direction', 'departmentName', 'replyToId', 'threadId', 'updatedAt'])
+          ) &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow delete: if isValidId(userId) && isValidId(memoId) && isVerifiedOwner(userId);
+      }
+
+      match /drafts/{draftId} {
+        allow get: if isValidId(userId) && isValidId(draftId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(draftId) && isVerifiedOwner(userId) &&
+          isValidDraft(incoming(), userId, draftId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow update: if isValidId(userId) && isValidId(draftId) && isVerifiedOwner(userId) &&
+          isValidDraft(incoming(), userId, draftId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['pinned', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'scope', 'projectId', 'linkedWordFileId', 'pinned', 'updatedAt'])
+          ) &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow delete: if isValidId(userId) && isValidId(draftId) && isVerifiedOwner(userId);
+      }
+
+      match /orders/{orderId} {
+        allow get: if isValidId(userId) && isValidId(orderId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(orderId) && isVerifiedOwner(userId) &&
+          isValidOrder(incoming(), userId, orderId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow update: if isValidId(userId) && isValidId(orderId) && isVerifiedOwner(userId) &&
+          isValidOrder(incoming(), userId, orderId) &&
+          existing().status != 'done' &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['refCode', 'title', 'details', 'domain', 'projectId', 'issuer', 'assigneeOrUnit', 'subDepartment', 'technicians', 'isAssigned', 'priority', 'status', 'dueDate', 'linkedFileIds', 'updatedAt'])
+          ) &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow delete: if isValidId(userId) && isValidId(orderId) && isVerifiedOwner(userId);
+      }
+
+      match /messages/{messageId} {
+        allow get: if isValidId(userId) && isValidId(messageId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(messageId) && isVerifiedOwner(userId) &&
+          isValidMessage(incoming(), userId, messageId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow update: if isValidId(userId) && isValidId(messageId) && isVerifiedOwner(userId) &&
+          isValidMessage(incoming(), userId, messageId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['isRead', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['starred', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['convertedOrderId', 'isRead', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['convertedMemoId', 'isRead', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['senderName', 'senderRole', 'subject', 'body', 'channel', 'domain', 'projectId', 'receivedAt', 'isRead', 'starred', 'updatedAt'])
+          ) &&
+          userRootExists(userId) &&
+          isValidProjectRef(userId, incoming().projectId);
+        allow delete: if isValidId(userId) && isValidId(messageId) && isVerifiedOwner(userId);
+      }
+
+      match /correspondenceEntities/{entityId} {
+        allow get: if isValidId(userId) && isValidId(entityId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(entityId) && isVerifiedOwner(userId) &&
+          isValidCorrespondenceEntity(incoming(), userId, entityId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId);
+        allow update: if isValidId(userId) && isValidId(entityId) && isVerifiedOwner(userId) &&
+          isValidCorrespondenceEntity(incoming(), userId, entityId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'contactInfo', 'notes', 'updatedAt']) &&
+          userRootExists(userId);
+        allow delete: if isValidId(userId) && isValidId(entityId) && isVerifiedOwner(userId);
+      }
+
+      match /correspondences/{correspondenceId} {
+        allow get: if isValidId(userId) && isValidId(correspondenceId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(correspondenceId) && isVerifiedOwner(userId) &&
+          isValidExternalCorrespondence(incoming(), userId, correspondenceId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          userRootExists(userId) &&
+          isValidEntityRef(userId, incoming().entityId);
+        allow update: if isValidId(userId) && isValidId(correspondenceId) && isVerifiedOwner(userId) &&
+          isValidExternalCorrespondence(incoming(), userId, correspondenceId) &&
+          incoming().id == existing().id &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['pinned', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['entityId', 'entityName', 'direction', 'refNumber', 'subject', 'body', 'date', 'subDepartment', 'linkedFileIds', 'pinned', 'replyToId', 'threadId', 'updatedAt'])
+          ) &&
+          userRootExists(userId) &&
+          isValidEntityRef(userId, incoming().entityId);
+        allow delete: if isValidId(userId) && isValidId(correspondenceId) && isVerifiedOwner(userId);
+      }
+    }
+  }
+}
