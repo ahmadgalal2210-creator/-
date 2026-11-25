@@ -34,9 +34,10 @@ function inlineOfflineTemplatePlugin(): Plugin {
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="إدارة البيئة" />
+    <meta name="apple-mobile-web-app-title" content="درايمانب" />
+    <meta name="application-name" content="درايمانب" />
     <meta name="cloud-sync-origin" content="__CLOUD_SYNC_ORIGIN__" />
-    <title>إدارة البيئة — السكرتارية | شركة الدقهلية لصناعة وتكرير السكر</title>
+    <title>درايمانب | Draymanb</title>
     <meta
       name="description"
       content="منظومة إدارة البيئة والسلامة المهنية لشركة الدقهلية لصناعة وتكرير السكر — د. أيمن عبد الحميد (دكتوراه في الكيمياء والسلامة المهنية)."
